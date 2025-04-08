@@ -26,6 +26,11 @@ export async function POST(req: Request) {
     const { history }: { history: ChatHistory } = await req.json();
     const code = history.code || generateReportCode();
     
+    // 메시지가 너무 길면 최근 메시지만 사용 (토큰 제한 완화)
+    const recentMessages = history.messages.length > 10 
+      ? history.messages.slice(-10) 
+      : history.messages;
+    
     // OpenAI 메시지 형식으로 변환
     const apiMessages = [
       {
@@ -48,12 +53,12 @@ export async function POST(req: Request) {
         15. RESPONSE DIRECTION OPTIONS: 응답 방향 옵션
         16. REPORT GENERATED USING: 보고서 생성 방법
         
-        각 항목에 대해 자세하게 응답해주세요.`
+        각 항목은 간결하게 작성해주세요.`
       }
     ];
     
     // 기존 메시지를 OpenAI API 형식으로 변환
-    history.messages.forEach((msg: Message) => {
+    recentMessages.forEach((msg: Message) => {
       apiMessages.push({
         role: msg.role,
         content: msg.content
@@ -98,3 +103,8 @@ export async function POST(req: Request) {
     );
   }
 } 
+
+// Edge Function으로 변경하여 더 긴 실행 시간 제공
+export const config = {
+  runtime: 'edge',
+};

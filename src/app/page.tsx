@@ -117,30 +117,8 @@ export default function Home() {
       setReportCode(code);
       setShowCodeSuccess(true);
       
-      // 이전 대화 내용 초기화하고 이미지 URL도 함께 전송
-      const chatResponse = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          messages: [{ role: 'user', content: '이전 대화를 불러와주세요.' }],
-          reportImageUrl: data.url
-        }),
-      });
       
-      if (!chatResponse.ok) {
-        throw new Error('대화 복원 실패');
-      }
-      
-      const chatData = await chatResponse.json();
-      
-      setMessages([
-        {
-          role: 'assistant',
-          content: chatData.message.content || `코드 ${code}로 이전 대화를 불러왔습니다. 계속해서 대화해 주세요.`
-        }
-      ]);
+      setMessages([]);
       
       // 성공 메시지 표시 후 3초 후 자동으로 사라짐
       setTimeout(() => {

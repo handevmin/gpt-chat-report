@@ -35,26 +35,30 @@ export async function POST(req: Request) {
       }
     ];
     
-    // 리포트 이미지가 있는 경우 시스템 메시지에 이미지 추가
+    // 리포트 이미지가 있는 경우 시스템 메시지와 이미지 메시지 분리
     if (reportImageUrl) {
-      const systemContent: ContentPart[] = [
-        {
-          type: 'text',
-          text: '당신은 도움이 되는 친절한 AI 어시스턴트입니다. 다음 이미지는 이전 대화 내용을 담은 리포트입니다. 이 내용을 기반으로 대화를 이어가세요.'
-        },
-        {
-          type: 'image_url',
-          image_url: {
-            url: reportImageUrl
-          }
-        }
-      ];
-      
-      // @ts-expect-error - OpenAI API 타입 정의 문제를 우회
+      // 일반 시스템 메시지는 그대로 유지
       apiMessages[0] = {
         role: 'system',
-        content: systemContent
+        content: '당신은 도움이 되는 친절한 AI 어시스턴트입니다. 이전 대화 내용을 담은 리포트 이미지를 보고 대화를 이어가세요.'
       };
+      
+      // 이미지는 user 역할로 별도 메시지 추가
+      apiMessages.push({
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: '이것은 이전 대화의 리포트 이미지입니다. 이 내용을 기반으로 대화해 주세요.'
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: reportImageUrl
+            }
+          }
+        ]
+      });
     }
     
     // 사용자 메시지 추가
@@ -78,7 +82,7 @@ export async function POST(req: Request) {
   } catch (error: Error | unknown) {
     console.error('API 오류:', error);
     return NextResponse.json(
-      { error: '요청 처리 중 오류가 발생했습니다.' },
+      { error: error instanceof Error ? error.message : '요청 처리 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

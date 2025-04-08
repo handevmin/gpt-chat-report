@@ -6,23 +6,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Message Content 타입 정의
-interface ImageUrl {
-  url: string;
-}
-
-interface ContentPartImage {
-  type: 'image_url';
-  image_url: ImageUrl;
-}
-
-interface ContentPartText {
-  type: 'text';
-  text: string;
-}
-
-type ContentPart = ContentPartText | ContentPartImage;
-
 export async function POST(req: Request) {
   try {
     const { messages, reportImageUrl } = await req.json();

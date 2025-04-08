@@ -69,7 +69,7 @@ export async function GET(req: Request) {
       url: downloadUrl,
       code: code
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('이미지 URL 가져오기 오류:', error);
     return NextResponse.json(
       { error: '이미지를 찾을 수 없습니다.' },

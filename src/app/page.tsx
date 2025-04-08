@@ -111,8 +111,6 @@ export default function Home() {
         throw new Error('이미지를 찾을 수 없습니다.');
       }
       
-      const data = await response.json();
-      
       // 코드가 유효한 경우 리포트 코드 설정
       setReportCode(code);
       setShowCodeSuccess(true);

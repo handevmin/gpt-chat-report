@@ -10,11 +10,16 @@ export async function POST(req: Request) {
   try {
     const { messages, reportImageUrl } = await req.json();
     
+    // 최근 메시지만 사용하여 토큰 제한 완화
+    const recentMessages = messages.length > 15 
+      ? messages.slice(-15) 
+      : messages;
+    
     // 기본 메시지 구성
     const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       {
         role: 'system',
-        content: '당신은 도움이 되는 친절한 AI 어시스턴트입니다. 사용자의 질문에 명확하고 정확하게 답변해 주세요.'
+        content: '당신은 도움이 되는 친절한 AI 어시스턴트입니다. 사용자의 질문에 명확하고 간결하게 답변해 주세요.'
       }
     ];
     
@@ -45,7 +50,7 @@ export async function POST(req: Request) {
     }
     
     // 사용자 메시지 추가
-    messages.forEach((msg: Message) => {
+    recentMessages.forEach((msg: Message) => {
       apiMessages.push({
         role: msg.role,
         content: msg.content
@@ -56,7 +61,7 @@ export async function POST(req: Request) {
       model: 'gpt-4o',
       messages: apiMessages,
       temperature: 0.7,
-      max_tokens: 1000
+      max_tokens: 1500
     });
     
     const response = completion.choices[0].message;
@@ -69,4 +74,9 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-} 
+}
+
+// Edge Function으로 변경하여 타임아웃 문제 해결
+export const config = {
+  runtime: 'edge',
+};

@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     const downloadUrl = await getDownloadURL(snapshot.ref);
     
     return NextResponse.json({ url: downloadUrl });
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
     console.error('이미지 업로드 오류:', error);
     return NextResponse.json(
       { error: '이미지 업로드 중 오류가 발생했습니다.' },
@@ -65,7 +65,7 @@ export async function GET(req: Request) {
     const downloadUrl = await getDownloadURL(imageRef);
     
     return NextResponse.json({ url: downloadUrl });
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
     console.error('이미지 URL 가져오기 오류:', error);
     return NextResponse.json(
       { error: '이미지를 찾을 수 없습니다.' },

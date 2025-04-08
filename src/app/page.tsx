@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Message, ChatHistory, ReportData } from '@/types';
-import { toPng } from 'html-to-image';
 import { generateReportCode } from '@/utils/report';
 import ChatMessage from '@/components/ChatMessage';
 import ChatInput from '@/components/ChatInput';
@@ -16,7 +15,6 @@ export default function Home() {
   const [reportCode, setReportCode] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showCodeSuccess, setShowCodeSuccess] = useState(false);
-  const reportRef = useRef<HTMLDivElement>(null);
 
   // 메시지가 추가될 때마다 스크롤을 맨 아래로 이동
   useEffect(() => {

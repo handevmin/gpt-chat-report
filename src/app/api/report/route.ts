@@ -61,8 +61,8 @@ export async function POST(req: Request) {
     });
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: apiMessages as any,
+      model: 'gpt-4o',
+      messages: apiMessages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       temperature: 0.7,
       max_tokens: 2000
     });
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     };
 
     return NextResponse.json({ report: reportData });
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
     console.error('리포트 생성 오류:', error);
     return NextResponse.json(
       { error: '리포트 생성 중 오류가 발생했습니다.' },

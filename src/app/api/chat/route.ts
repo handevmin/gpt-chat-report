@@ -27,8 +27,8 @@ export async function POST(req: Request) {
     });
     
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: apiMessages as any,
+      model: 'gpt-4o',
+      messages: apiMessages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       temperature: 0.7,
       max_tokens: 1000
     });
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const response = completion.choices[0].message;
     
     return NextResponse.json({ message: response });
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
     console.error('API 오류:', error);
     return NextResponse.json(
       { error: '요청 처리 중 오류가 발생했습니다.' },

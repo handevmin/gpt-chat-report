@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       // 일반 시스템 메시지는 그대로 유지
       apiMessages[0] = {
         role: 'system',
-        content: '당신은 도움이 되는 친절한 AI 어시스턴트입니다. 이전 대화 내용을 담은 리포트 이미지를 보고 대화를 이어가세요.'
+        content: '당신은 도움이 되는 친절한 AI 어시스턴트입니다. 리포트 이미지를 보고 대화를 이어가세요.'
       };
       
       // 이미지는 user 역할로 별도 메시지 추가
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         content: [
           {
             type: 'text',
-            text: '이것은 이전 대화의 리포트 이미지입니다. 이 내용을 기반으로 대화해 주세요.'
+            text: '이것은 리포트 이미지입니다. 이 내용을 기반으로 대화해 주세요.'
           },
           {
             type: 'image_url',

@@ -64,8 +64,12 @@ export async function GET(req: Request) {
     const imageRef = ref(storage, `reports/${code}.png`);
     const downloadUrl = await getDownloadURL(imageRef);
     
-    return NextResponse.json({ url: downloadUrl });
-  } catch (error: Error | unknown) {
+    // 이미지 URL만 반환
+    return NextResponse.json({ 
+      url: downloadUrl,
+      code: code
+    });
+  } catch (error: any) {
     console.error('이미지 URL 가져오기 오류:', error);
     return NextResponse.json(
       { error: '이미지를 찾을 수 없습니다.' },

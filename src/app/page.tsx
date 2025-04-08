@@ -35,13 +35,18 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      // 채팅 API 호출
+      // 채팅 API 호출 (리포트 이미지 URL이 있는 경우 함께 전송)
+      const reportImageUrl = reportCode ? await getReportImageUrl(reportCode) : null;
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+        body: JSON.stringify({ 
+          messages: [...messages, userMessage],
+          reportImageUrl
+        }),
       });
 
       if (!response.ok) {
@@ -106,22 +111,41 @@ export default function Home() {
         throw new Error('이미지를 찾을 수 없습니다.');
       }
       
+      const data = await response.json();
+      
       // 코드가 유효한 경우 리포트 코드 설정
       setReportCode(code);
       setShowCodeSuccess(true);
+      
+      // 이전 대화 내용 초기화하고 이미지 URL도 함께 전송
+      const chatResponse = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          messages: [{ role: 'user', content: '이전 대화를 불러와주세요.' }],
+          reportImageUrl: data.url
+        }),
+      });
+      
+      if (!chatResponse.ok) {
+        throw new Error('대화 복원 실패');
+      }
+      
+      const chatData = await chatResponse.json();
+      
+      setMessages([
+        {
+          role: 'assistant',
+          content: chatData.message.content || `코드 ${code}로 이전 대화를 불러왔습니다. 계속해서 대화해 주세요.`
+        }
+      ]);
       
       // 성공 메시지 표시 후 3초 후 자동으로 사라짐
       setTimeout(() => {
         setShowCodeSuccess(false);
       }, 3000);
-      
-      // 이전 대화 내용 초기화
-      setMessages([
-        {
-          role: 'assistant',
-          content: `코드 ${code}로 이전 대화를 불러왔습니다. 계속해서 대화해 주세요.`
-        }
-      ]);
     } catch (error) {
       console.error('코드 처리 오류:', error);
       setMessages(prev => [
@@ -133,6 +157,19 @@ export default function Home() {
       ]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 리포트 이미지 URL 가져오기 함수
+  const getReportImageUrl = async (code: string): Promise<string | null> => {
+    try {
+      const response = await fetch(`/api/storage?code=${code}`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error('이미지 URL 가져오기 오류:', error);
+      return null;
     }
   };
 

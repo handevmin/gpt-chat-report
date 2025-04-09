@@ -7,27 +7,76 @@ import ChatMessage from '@/components/ChatMessage';
 import ChatInput from '@/components/ChatInput';
 import CodeInput from '@/components/CodeInput';
 import ReportViewer from '@/components/ReportViewer';
-import { FiSave } from 'react-icons/fi';
+import { FiSave, FiCopy } from 'react-icons/fi';
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [report, setReport] = useState<ReportData | null>(null);
   const [reportCode, setReportCode] = useState<string | null>(null);
+  const [reportUrl, setReportUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showCodeSuccess, setShowCodeSuccess] = useState(false);
   const [shouldGenerateImage, setShouldGenerateImage] = useState(false);
   const [savedCode, setSavedCode] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
 
   // 메시지가 추가될 때마다 스크롤을 맨 아래로 이동
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // GPT에 메시지 전송 및 응답 처리
+  // 메시지 전송 및 응답 처리
   const handleSendMessage = async (content: string) => {
-    // 코드가 입력된 경우 기존 대화 불러오기
-    if (content.match(/^EMV-\d{8}-\d{6}$/)) {
+    // 안내 메시지 닫기
+    setShowIntro(false);
+    
+    // URL 형식의 코드가 입력된 경우 처리
+    if (content.includes('firebasestorage.googleapis.com') && content.includes('/reports/') && content.includes('.png')) {
+      try {
+        // 채팅창으로 입력된 URL을 그대로 storage API에 전달
+        console.log('URL 입력 감지:', content);
+        setIsLoading(true);
+        
+        const cleanUrl = content.trim(); // 공백 제거
+        const response = await fetch(`/api/storage?code=${encodeURIComponent(cleanUrl)}`);
+        
+        if (!response.ok) {
+          throw new Error('이미지를 찾을 수 없습니다.');
+        }
+        
+        const data = await response.json();
+        
+        // 코드와 URL 설정
+        setReportCode(data.code);
+        setReportUrl(data.url);
+        setShowCodeSuccess(true);
+        
+        // 메시지 초기화
+        setMessages([]);
+        
+        // 성공 메시지 표시 후 3초 후 자동으로 사라짐
+        setTimeout(() => {
+          setShowCodeSuccess(false);
+        }, 3000);
+      } catch (error) {
+        console.error('URL 처리 오류:', error);
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: '유효하지 않은 URL입니다. 올바른 Firebase Storage URL을 입력해 주세요.'
+          }
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+    
+    // 기존 코드 형식 처리 (하위 호환성 유지)
+    if (content.match(/^(EMV|SSY)-\d{8}-\d{6}$/)) {
       handleCodeSubmit(content);
       return;
     }
@@ -38,8 +87,8 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      // 채팅 API 호출 (리포트 이미지 URL이 있는 경우 함께 전송)
-      const reportImageUrl = reportCode ? await getReportImageUrl(reportCode) : null;
+      // 채팅 API 호출 (리콜키 이미지 URL이 있는 경우 함께 전송)
+      const reportImageUrl = reportUrl || (reportCode ? await getReportImageUrl(reportCode) : null);
       
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -58,7 +107,7 @@ export default function Home() {
 
       const data = await response.json();
       
-      // AI 응답 추가
+      // 응답 추가
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.message.content || '죄송합니다, 응답을 생성하는 데 문제가 발생했습니다.'
@@ -66,17 +115,17 @@ export default function Home() {
 
       setMessages(prev => [...prev, assistantMessage]);
 
-      // 리포트 생성 - 백그라운드에서 비동기적으로 처리
+      // 리콜키 생성 - 백그라운드에서 비동기적으로 처리
       const newReportCode = reportCode || generateReportCode();
       setReportCode(newReportCode);
       
-      // 사용자 경험에 영향을 주지 않도록 리포트 API 호출을 비동기로 처리
+      // 사용자 경험에 영향을 주지 않도록 리콜키 API 호출을 비동기로 처리
       const updatedHistory: ChatHistory = {
         messages: [...messages, userMessage, assistantMessage],
         code: newReportCode
       };
 
-      // 리포트 API 호출을 백그라운드에서 비동기적으로 처리 (await 없음)
+      // 리콜키 API 호출을 백그라운드에서 비동기적으로 처리 (await 없음)
       generateReportInBackground(updatedHistory);
 
     } catch (error) {
@@ -93,10 +142,46 @@ export default function Home() {
     }
   };
 
-  // 백그라운드에서 리포트 생성 처리
+  // URL로 대화 불러오기
+  const handleUrlSubmit = async (url: string) => {
+    setShowIntro(false);
+    setIsLoading(true);
+    try {
+      // URL에서 코드 추출 (reports/ 이후, .png 이전 부분)
+      const codeMatch = url.match(/\/reports(?:\%2F|\/)([^\/\?]+)\.png/);
+      
+      if (!codeMatch) {
+        console.error('코드 추출 실패:', url);
+        throw new Error('유효하지 않은 URL 형식입니다.');
+      }
+      
+      const code = decodeURIComponent(codeMatch[1]); // URL 디코딩 처리
+      console.log('추출된 코드:', code);
+      
+      if (!code.match(/^(EMV|SSY)-\d{8}-\d{6}$/)) {
+        console.error('코드 형식 불일치:', code);
+        throw new Error('유효하지 않은 코드 형식입니다.');
+      }
+      
+      // 코드가 유효한지 확인
+      handleCodeSubmit(code);
+    } catch (error) {
+      console.error('URL 처리 오류:', error);
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: '유효하지 않은 URL입니다. 올바른 Firebase Storage URL을 입력해 주세요.'
+        }
+      ]);
+      setIsLoading(false);
+    }
+  };
+
+  // 백그라운드에서 리콜키 생성 처리
   const generateReportInBackground = async (history: ChatHistory) => {
     try {
-      // 리포트 API 호출
+      // 리콜키 API 호출
       const reportResponse = await fetch('/api/report', {
         method: 'POST',
         headers: {
@@ -106,20 +191,21 @@ export default function Home() {
       });
 
       if (!reportResponse.ok) {
-        console.error('리포트 API 호출 실패:', reportResponse.status);
+        console.error('리콜키 API 호출 실패:', reportResponse.status);
         return;
       }
 
       const reportData = await reportResponse.json();
       setReport(reportData.report);
     } catch (error) {
-      console.error('리포트 생성 백그라운드 처리 오류:', error);
+      console.error('리콜키 생성 백그라운드 처리 오류:', error);
       // 사용자 경험에 영향을 주지 않도록 오류 처리만 하고 계속 진행
     }
   };
 
-  // 코드로 이전 대화 불러오기
+  // 코드로 이전 대화 불러오기 (하위 호환성 유지)
   const handleCodeSubmit = async (code: string) => {
+    setShowIntro(false);
     setIsLoading(true);
     try {
       // Storage API 호출
@@ -128,9 +214,12 @@ export default function Home() {
       if (!response.ok) {
         throw new Error('이미지를 찾을 수 없습니다.');
       }
-            
-      // 코드가 유효한 경우 리포트 코드 설정
+      
+      const data = await response.json();
+      
+      // 코드가 유효한 경우 리콜키 코드와 URL 설정
       setReportCode(code);
+      setReportUrl(data.url);
       setShowCodeSuccess(true);
       
       // 사용자에게 메시지 없이 코드 로드 성공 표시
@@ -162,15 +251,27 @@ export default function Home() {
     // 이미 코드가 있으면 해당 코드 사용, 없으면 새로 생성
     const code = reportCode || generateReportCode();
     setReportCode(code);
-    setSavedCode(code); // 저장된 코드 표시용
     setShouldGenerateImage(true); // 이미지 생성 트리거
     
-    setTimeout(() => {
-      setSavedCode(null); // 저장 성공 메시지 3초 후 제거
-    }, 3000);
+    // URL이 이미 있는 경우 바로 표시
+    if (reportUrl) {
+      setSavedCode(reportUrl);
+      setTimeout(() => {
+        setSavedCode(null);
+      }, 3000);
+    }
   };
 
-  // 리포트 이미지 URL 가져오기 함수
+  // 클립보드에 URL 복사
+  const handleCopyUrl = () => {
+    if (reportUrl) {
+      navigator.clipboard.writeText(reportUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // 리콜키 이미지 URL 가져오기 함수
   const getReportImageUrl = async (code: string): Promise<string | null> => {
     try {
       const response = await fetch(`/api/storage?code=${code}`);
@@ -203,10 +304,16 @@ export default function Home() {
       }
 
       const data = await response.json();
-      console.log('리포트 이미지 업로드 완료:', data.url);
+      setReportUrl(data.url); // 업로드된 이미지 URL 저장
+      setSavedCode(data.url); // 저장 성공 메시지에 URL 표시
+      console.log('리콜키 이미지 업로드 완료:', data.url);
       setShouldGenerateImage(false); // 이미지 생성 완료 후 플래그 리셋
+      
+      setTimeout(() => {
+        setSavedCode(null); // 저장 성공 메시지 3초 후 제거
+      }, 3000);
     } catch (error) {
-      console.error('리포트 이미지 처리 오류:', error);
+      console.error('리콜키 이미지 처리 오류:', error);
       setShouldGenerateImage(false); // 오류 발생 시에도 플래그 리셋
     }
   };
@@ -215,7 +322,7 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-between p-4 md:p-8">
       <div className="w-full max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         <div className="p-4 md:p-8">
-          <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">GPT 대화 리포트 생성기</h1>
+          <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">대화 리콜키 생성기</h1>
 
           {/* 코드 입력 */}
           <CodeInput onSubmit={handleCodeSubmit} isLoading={isLoading} />
@@ -227,17 +334,36 @@ export default function Home() {
             </div>
           )}
 
-          {/* 리포트 코드 표시 */}
-          {reportCode && (
+          {/* 리콜키 코드/URL 표시 */}
+          {(reportCode || reportUrl) && (
             <div className="bg-gray-100 p-4 mb-6 rounded-lg relative">
               <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">대화 리포트 코드:</p>
-                  <p className="font-mono text-lg font-semibold">{reportCode}</p>
+                <div className="flex-grow">
+                  {reportUrl ? (
+                    <>
+                      <p className="text-sm text-gray-600 mb-1">대화 리콜키 URL:</p>
+                      <div className="flex items-center">
+                        <p className="font-mono text-sm font-semibold truncate max-w-sm">{reportUrl}</p>
+                        <button
+                          onClick={handleCopyUrl}
+                          className="ml-2 p-1 text-gray-500 hover:text-blue-500"
+                          title="URL 복사"
+                        >
+                          <FiCopy size={16} />
+                        </button>
+                        {copied && <span className="text-xs text-green-600 ml-2">복사됨!</span>}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-600 mb-1">대화 리콜키 코드:</p>
+                      <p className="font-mono text-lg font-semibold">{reportCode}</p>
+                    </>
+                  )}
                 </div>
                 <button 
                   onClick={handleGenerateCode}
-                  className="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 flex items-center"
+                  className="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 flex items-center ml-4"
                   disabled={messages.length === 0}
                 >
                   <FiSave className="mr-2" />
@@ -245,13 +371,17 @@ export default function Home() {
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                코드 발행하기 버튼을 클릭하면 현재 대화를 저장하고 코드를 발급받을 수 있습니다.
+                코드 발행하기 버튼을 클릭하면 현재 대화를 저장하고 URL을 발급받을 수 있습니다.
               </p>
               
               {/* 저장 성공 메시지 */}
               {savedCode && (
                 <div className="mt-2 p-2 bg-green-100 text-green-700 rounded-md text-sm">
-                  코드 {savedCode}로 대화가 저장되었습니다.
+                  {savedCode.includes('http') ? (
+                    <>URL로 대화가 저장되었습니다: <span className="font-mono text-xs">{savedCode}</span></>
+                  ) : (
+                    <>코드 {savedCode}로 대화가 저장되었습니다.</>
+                  )}
                 </div>
               )}
             </div>
@@ -260,8 +390,15 @@ export default function Home() {
           {/* 채팅 메시지 목록 */}
           <div className="bg-gray-50 p-4 rounded-lg h-[50vh] overflow-y-auto mb-4">
             {messages.length === 0 ? (
-              <div className="text-center text-gray-500 mt-20">
-                <p>새로운 대화를 시작하거나 이전 대화 코드를 입력하세요.</p>
+              <div className="text-center text-gray-500 mt-4">
+                {showIntro ? (
+                  <div className="p-4 border-l-4 border-blue-500 bg-blue-50 text-left">
+                    <p className="text-sm">이 채팅은 대화를 자동으로 저장하지 않습니다. 대화를 이어가고 싶은 경우, 중간에 코드번호를 발행해 받으면 대화의 흐름을 그대로 이어서 계속할 수 있습니다.</p>
+                    <p className="text-sm mt-3">발급된 코드번호는 Claude, Gemini 등 다른 AI에 붙여넣어 지금 대화의 흐름을 그대로 이어서 계속할 수 있습니다.</p>
+                  </div>
+                ) : (
+                  <p className="mt-16">새로운 대화를 시작하거나 이전 대화 코드/URL을 입력하세요.</p>
+                )}
               </div>
             ) : (
               messages.map((message, index) => (
@@ -280,8 +417,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 리포트 뷰어 (숨김 처리) */}
+      {/* 리콜키 뷰어 (숨김 처리) */}
       {report && <ReportViewer report={report} onImageGenerated={handleImageGenerated} />}
     </main>
   );
-}
+} 

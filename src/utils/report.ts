@@ -3,7 +3,7 @@ import { ReportData } from '@/types';
 
 // 리포트 코드 생성 함수
 export const generateReportCode = (): string => {
-  const prefix = 'EMV-';
+  const prefix = 'SSY-';
   const date = format(new Date(), 'yyyyMMdd-HHmmss');
   return `${prefix}${date}`;
 };

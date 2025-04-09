@@ -61,14 +61,39 @@ export async function GET(req: Request) {
       );
     }
     
-    const imageRef = ref(storage, `reports/${code}.png`);
-    const downloadUrl = await getDownloadURL(imageRef);
+    // URL 형식인 경우 처리
+    let cleanCode = code;
+    if (code.includes('firebasestorage.googleapis.com') && code.includes('/reports/')) {
+      const codeMatch = code.match(/\/reports(?:\%2F|\/)([^\/\?]+)\.png/);
+      if (codeMatch) {
+        cleanCode = decodeURIComponent(codeMatch[1]);
+      } else {
+        return NextResponse.json(
+          { error: '유효하지 않은 URL 형식입니다.' },
+          { status: 400 }
+        );
+      }
+    }
     
-    // 이미지 URL만 반환
-    return NextResponse.json({ 
-      url: downloadUrl,
-      code: code
-    });
+    console.log('Cleaned code for Firebase lookup:', cleanCode);
+    const imageRef = ref(storage, `reports/${cleanCode}.png`);
+    
+    try {
+      const downloadUrl = await getDownloadURL(imageRef);
+      
+      // 이미지 URL만 반환
+      return NextResponse.json({ 
+        url: downloadUrl,
+        code: cleanCode
+      });
+    } catch (error) {
+      // getDownloadURL 실패 시 로그 찍고 404 반환
+      console.error('이미지 URL 가져오기 오류:', error);
+      return NextResponse.json(
+        { error: '이미지를 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
   } catch (error: unknown) {
     console.error('이미지 URL 가져오기 오류:', error);
     return NextResponse.json(

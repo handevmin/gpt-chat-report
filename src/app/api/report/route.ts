@@ -7,14 +7,14 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 리포트 코드 생성
+// 리콜키 코드 생성
 function generateReportCode(): string {
-  const prefix = 'EMV-';
+  const prefix = 'SSY-';
   const date = format(new Date(), 'yyyyMMdd-HHmmss');
   return `${prefix}${date}`;
 }
 
-// 리포트 텍스트에서 섹션 추출
+// 리콜키 텍스트에서 섹션 추출
 function extractSection(text: string, sectionName: string): string {
   const regex = new RegExp(`${sectionName}[:\\s]+(.*?)(?=[\\d]+\\.|$)`, 's');
   const match = text.match(regex);
@@ -66,15 +66,15 @@ export async function POST(req: Request) {
     });
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o', // GPT-4o 대신 더 빠른 모델 사용
       messages: apiMessages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       temperature: 0.7,
-      max_tokens: 2000
+      max_tokens: 1500 // 토큰 수 감소
     });
 
     const reportText = completion.choices[0].message.content || '';
     
-    // 리포트 텍스트 파싱
+    // 리콜키 텍스트 파싱
     const reportData: ReportData = {
       flow: extractSection(reportText, 'FLOW'),
       coreExpressions: extractSection(reportText, 'CORE EXPRESSIONS'),
@@ -96,9 +96,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ report: reportData });
   } catch (error: Error | unknown) {
-    console.error('리포트 생성 오류:', error);
+    console.error('리콜키 생성 오류:', error);
     return NextResponse.json(
-      { error: '리포트 생성 중 오류가 발생했습니다.' },
+      { error: '리콜키 생성 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
@@ -107,4 +107,4 @@ export async function POST(req: Request) {
 // Edge Function으로 변경하여 더 긴 실행 시간 제공
 export const config = {
   runtime: 'edge',
-};
+}; 

@@ -27,7 +27,7 @@ const CodeInput: React.FC<CodeInputProps> = ({ onSubmit, isLoading }) => {
           type="text"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          placeholder="EMV-YYYYMMDD-HHMMSS 형식"
+          placeholder="SSY-YYYYMMDD-HHMMSS 형식"
           className="flex-grow p-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           disabled={isLoading}
         />

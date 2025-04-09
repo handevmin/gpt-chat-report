@@ -142,42 +142,6 @@ export default function Home() {
     }
   };
 
-  // URL로 대화 불러오기
-  const handleUrlSubmit = async (url: string) => {
-    setShowIntro(false);
-    setIsLoading(true);
-    try {
-      // URL에서 코드 추출 (reports/ 이후, .png 이전 부분)
-      const codeMatch = url.match(/\/reports(?:\%2F|\/)([^\/\?]+)\.png/);
-      
-      if (!codeMatch) {
-        console.error('코드 추출 실패:', url);
-        throw new Error('유효하지 않은 URL 형식입니다.');
-      }
-      
-      const code = decodeURIComponent(codeMatch[1]); // URL 디코딩 처리
-      console.log('추출된 코드:', code);
-      
-      if (!code.match(/^(EMV|SSY)-\d{8}-\d{6}$/)) {
-        console.error('코드 형식 불일치:', code);
-        throw new Error('유효하지 않은 코드 형식입니다.');
-      }
-      
-      // 코드가 유효한지 확인
-      handleCodeSubmit(code);
-    } catch (error) {
-      console.error('URL 처리 오류:', error);
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: '유효하지 않은 URL입니다. 올바른 Firebase Storage URL을 입력해 주세요.'
-        }
-      ]);
-      setIsLoading(false);
-    }
-  };
-
   // 백그라운드에서 리콜키 생성 처리
   const generateReportInBackground = async (history: ChatHistory) => {
     try {

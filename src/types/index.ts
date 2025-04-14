@@ -25,5 +25,6 @@ export interface ReportData {
   aiSelfModulationTip: string;
   responseDirectionOptions: string;
   reportGenerated: string;
+  note: string;
   code: string;
 } 

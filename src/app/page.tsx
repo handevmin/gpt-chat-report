@@ -14,7 +14,6 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [report, setReport] = useState<ReportData | null>(null);
   const [reportCode, setReportCode] = useState<string | null>(null);
-  const [reportUrl, setReportUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showCodeSuccess, setShowCodeSuccess] = useState(false);
   const [shouldGenerateImage, setShouldGenerateImage] = useState(false);
@@ -32,51 +31,8 @@ export default function Home() {
     // 안내 메시지 닫기
     setShowIntro(false);
     
-    // URL 형식의 코드가 입력된 경우 처리
-    if (content.includes('firebasestorage.googleapis.com') && content.includes('/reports/') && content.includes('.png')) {
-      try {
-        // 채팅창으로 입력된 URL을 그대로 storage API에 전달
-        console.log('URL 입력 감지:', content);
-        setIsLoading(true);
-        
-        const cleanUrl = content.trim(); // 공백 제거
-        const response = await fetch(`/api/storage?code=${encodeURIComponent(cleanUrl)}`);
-        
-        if (!response.ok) {
-          throw new Error('이미지를 찾을 수 없습니다.');
-        }
-        
-        const data = await response.json();
-        
-        // 코드와 URL 설정
-        setReportCode(data.code);
-        setReportUrl(data.url);
-        setShowCodeSuccess(true);
-        
-        // 메시지 초기화
-        setMessages([]);
-        
-        // 성공 메시지 표시 후 3초 후 자동으로 사라짐
-        setTimeout(() => {
-          setShowCodeSuccess(false);
-        }, 3000);
-      } catch (error) {
-        console.error('URL 처리 오류:', error);
-        setMessages(prev => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: '유효하지 않은 URL입니다. 올바른 Firebase Storage URL을 입력해 주세요.'
-          }
-        ]);
-      } finally {
-        setIsLoading(false);
-      }
-      return;
-    }
-    
-    // 기존 코드 형식 처리 (하위 호환성 유지)
-    if (content.match(/^(EMV|SSY)-\d{8}-\d{6}$/)) {
+    // SSY 코드 형식 처리
+    if (content.match(/^(SSY)-\d{8}-\d{6}$/)) {
       handleCodeSubmit(content);
       return;
     }
@@ -87,17 +43,14 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      // 채팅 API 호출 (리콜키 이미지 URL이 있는 경우 함께 전송)
-      const reportImageUrl = reportUrl || (reportCode ? await getReportImageUrl(reportCode) : null);
-      
+      // 채팅 API 호출
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          messages: [...messages, userMessage],
-          reportImageUrl
+          messages: [...messages, userMessage]
         }),
       });
 
@@ -125,7 +78,7 @@ export default function Home() {
         code: newReportCode
       };
 
-      // 리콜키 API 호출을 백그라운드에서 비동기적으로 처리 (await 없음)
+      // 리콜키 API 호출을 백그라운드에서 비동기적으로 처리
       generateReportInBackground(updatedHistory);
 
     } catch (error) {
@@ -167,23 +120,25 @@ export default function Home() {
     }
   };
 
-  // 코드로 이전 대화 불러오기 (하위 호환성 유지)
+  // 코드로 이전 대화 불러오기
   const handleCodeSubmit = async (code: string) => {
     setShowIntro(false);
     setIsLoading(true);
     try {
-      // Storage API 호출
+      // 유효한 SSY 코드 형식인지 확인
+      if (!code.match(/^SSY-\d{8}-\d{6}$/)) {
+        throw new Error('유효하지 않은 코드 형식입니다. SSY-YYYYMMDD-HHMMSS 형식이어야 합니다.');
+      }
+      
+      // Storage API 호출 - 코드가 유효한지만 확인
       const response = await fetch(`/api/storage?code=${code}`);
       
       if (!response.ok) {
-        throw new Error('이미지를 찾을 수 없습니다.');
+        throw new Error('코드가 유효하지 않습니다.');
       }
       
-      const data = await response.json();
-      
-      // 코드가 유효한 경우 리콜키 코드와 URL 설정
+      // 코드가 유효한 경우 리콜키 코드만 설정
       setReportCode(code);
-      setReportUrl(data.url);
       setShowCodeSuccess(true);
       
       // 사용자에게 메시지 없이 코드 로드 성공 표시
@@ -199,7 +154,7 @@ export default function Home() {
         ...prev,
         {
           role: 'assistant',
-          content: '유효하지 않은 코드입니다. 올바른 코드를 입력해 주세요.'
+          content: error instanceof Error ? error.message : '유효하지 않은 코드입니다. 올바른 코드를 입력해 주세요.'
         }
       ]);
     } finally {
@@ -217,34 +172,19 @@ export default function Home() {
     setReportCode(code);
     setShouldGenerateImage(true); // 이미지 생성 트리거
     
-    // URL이 이미 있는 경우 바로 표시
-    if (reportUrl) {
-      setSavedCode(reportUrl);
-      setTimeout(() => {
-        setSavedCode(null);
-      }, 3000);
-    }
+    // 코드를 바로 표시
+    setSavedCode(code);
+    setTimeout(() => {
+      setSavedCode(null);
+    }, 3000);
   };
 
-  // 클립보드에 URL 복사
-  const handleCopyUrl = () => {
-    if (reportUrl) {
-      navigator.clipboard.writeText(reportUrl);
+  // 클립보드에 코드 복사
+  const handleCopyCode = () => {
+    if (reportCode) {
+      navigator.clipboard.writeText(reportCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  // 리콜키 이미지 URL 가져오기 함수
-  const getReportImageUrl = async (code: string): Promise<string | null> => {
-    try {
-      const response = await fetch(`/api/storage?code=${code}`);
-      if (!response.ok) return null;
-      const data = await response.json();
-      return data.url;
-    } catch (error) {
-      console.error('이미지 URL 가져오기 오류:', error);
-      return null;
     }
   };
 
@@ -268,9 +208,10 @@ export default function Home() {
       }
 
       const data = await response.json();
-      setReportUrl(data.url); // 업로드된 이미지 URL 저장
-      setSavedCode(data.url); // 저장 성공 메시지에 URL 표시
-      console.log('리콜키 이미지 업로드 완료:', data.url);
+      
+      // 코드 사용 - 저장 성공 메시지에 표시
+      setSavedCode(data.code);
+      console.log('리콜키 이미지 업로드 완료:', data.code);
       setShouldGenerateImage(false); // 이미지 생성 완료 후 플래그 리셋
       
       setTimeout(() => {
@@ -298,32 +239,23 @@ export default function Home() {
             </div>
           )}
 
-          {/* 리콜키 코드/URL 표시 */}
-          {(reportCode || reportUrl) && (
+          {/* 리콜키 코드 표시 */}
+          {reportCode && (
             <div className="bg-gray-100 p-4 mb-6 rounded-lg relative">
               <div className="flex justify-between items-center">
                 <div className="flex-grow">
-                  {reportUrl ? (
-                    <>
-                      <p className="text-sm text-gray-600 mb-1">대화 리콜키 URL:</p>
-                      <div className="flex items-center">
-                        <p className="font-mono text-sm font-semibold truncate max-w-sm">{reportUrl}</p>
-                        <button
-                          onClick={handleCopyUrl}
-                          className="ml-2 p-1 text-gray-500 hover:text-blue-500"
-                          title="URL 복사"
-                        >
-                          <FiCopy size={16} />
-                        </button>
-                        {copied && <span className="text-xs text-green-600 ml-2">복사됨!</span>}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-gray-600 mb-1">대화 리콜키 코드:</p>
-                      <p className="font-mono text-lg font-semibold">{reportCode}</p>
-                    </>
-                  )}
+                  <p className="text-sm text-gray-600 mb-1">대화 리콜키 코드:</p>
+                  <div className="flex items-center">
+                    <p className="font-mono text-lg font-semibold">{reportCode}</p>
+                    <button
+                      onClick={handleCopyCode}
+                      className="ml-2 p-1 text-gray-500 hover:text-blue-500"
+                      title="코드 복사"
+                    >
+                      <FiCopy size={16} />
+                    </button>
+                    {copied && <span className="text-xs text-green-600 ml-2">복사됨!</span>}
+                  </div>
                 </div>
                 <button 
                   onClick={handleGenerateCode}
@@ -335,17 +267,13 @@ export default function Home() {
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                코드 발행하기 버튼을 클릭하면 현재 대화를 저장하고 URL을 발급받을 수 있습니다.
+                코드 발행하기 버튼을 클릭하면 현재 대화를 저장하고 리콜키 코드를 발급받을 수 있습니다.
               </p>
               
               {/* 저장 성공 메시지 */}
               {savedCode && (
                 <div className="mt-2 p-2 bg-green-100 text-green-700 rounded-md text-sm">
-                  {savedCode.includes('http') ? (
-                    <>URL로 대화가 저장되었습니다: <span className="font-mono text-xs">{savedCode}</span></>
-                  ) : (
-                    <>코드 {savedCode}로 대화가 저장되었습니다.</>
-                  )}
+                  <span className="font-mono">{savedCode}</span> 코드로 대화가 저장되었습니다.
                 </div>
               )}
             </div>
@@ -361,7 +289,7 @@ export default function Home() {
                     <p className="text-sm mt-3">발급된 코드번호는 Claude, Gemini 등 다른 AI에 붙여넣어 지금 대화의 흐름을 그대로 이어서 계속할 수 있습니다.</p>
                   </div>
                 ) : (
-                  <p className="mt-16">새로운 대화를 시작하거나 이전 대화 코드/URL을 입력하세요.</p>
+                  <p className="mt-16">새로운 대화를 시작하거나 이전 대화 코드를 입력하세요.</p>
                 )}
               </div>
             ) : (

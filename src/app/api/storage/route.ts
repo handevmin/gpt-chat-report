@@ -29,16 +29,25 @@ export async function POST(req: Request) {
       );
     }
     
+    // 유효한 SSY 코드 형식 확인
+    if(!code.match(/^SSY-\d{8}-\d{6}$/)) {
+      return NextResponse.json(
+        { error: '유효하지 않은 코드 형식입니다. SSY-YYYYMMDD-HHMMSS 형식이어야 합니다.' },
+        { status: 400 }
+      );
+    }
+    
     // 이미지 경로 설정
     const imageRef = ref(storage, `reports/${code}.png`);
     
     // Base64 데이터 URL을 Firebase Storage에 업로드
-    const snapshot = await uploadString(imageRef, dataUrl, 'data_url');
+    await uploadString(imageRef, dataUrl, 'data_url');
     
-    // 업로드된 이미지의 다운로드 URL 가져오기
-    const downloadUrl = await getDownloadURL(snapshot.ref);
-    
-    return NextResponse.json({ url: downloadUrl });
+    // 코드 반환
+    return NextResponse.json({ 
+      success: true,
+      code: code
+    });
   } catch (error: Error | unknown) {
     console.error('이미지 업로드 오류:', error);
     return NextResponse.json(
@@ -48,7 +57,7 @@ export async function POST(req: Request) {
   }
 }
 
-// 이미지 URL 가져오기 API
+// 코드 유효성 확인 API
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
@@ -61,44 +70,39 @@ export async function GET(req: Request) {
       );
     }
     
-    // URL 형식인 경우 처리
-    let cleanCode = code;
-    if (code.includes('firebasestorage.googleapis.com') && code.includes('/reports/')) {
-      const codeMatch = code.match(/\/reports(?:\%2F|\/)([^\/\?]+)\.png/);
-      if (codeMatch) {
-        cleanCode = decodeURIComponent(codeMatch[1]);
-      } else {
-        return NextResponse.json(
-          { error: '유효하지 않은 URL 형식입니다.' },
-          { status: 400 }
-        );
-      }
+    // 유효한 SSY 코드 형식 확인
+    if(!code.match(/^SSY-\d{8}-\d{6}$/)) {
+      return NextResponse.json(
+        { error: '유효하지 않은 코드 형식입니다. SSY-YYYYMMDD-HHMMSS 형식이어야 합니다.' },
+        { status: 400 }
+      );
     }
     
-    console.log('Cleaned code for Firebase lookup:', cleanCode);
-    const imageRef = ref(storage, `reports/${cleanCode}.png`);
+    console.log('코드 유효성 확인:', code);
+    const imageRef = ref(storage, `reports/${code}.png`);
     
     try {
-      const downloadUrl = await getDownloadURL(imageRef);
+      // 이미지가 존재하는지 확인만 함
+      await getDownloadURL(imageRef);
       
-      // 이미지 URL만 반환
+      // 코드가 유효함을 반환
       return NextResponse.json({ 
-        url: downloadUrl,
-        code: cleanCode
+        success: true,
+        code: code
       });
     } catch (error) {
-      // getDownloadURL 실패 시 로그 찍고 404 반환
-      console.error('이미지 URL 가져오기 오류:', error);
+      // 이미지가 존재하지 않는 경우
+      console.error('코드 확인 오류:', error);
       return NextResponse.json(
-        { error: '이미지를 찾을 수 없습니다.' },
+        { error: '유효하지 않은 코드입니다.' },
         { status: 404 }
       );
     }
   } catch (error: unknown) {
-    console.error('이미지 URL 가져오기 오류:', error);
+    console.error('코드 처리 오류:', error);
     return NextResponse.json(
-      { error: '이미지를 찾을 수 없습니다.' },
-      { status: 404 }
+      { error: '서버 오류가 발생했습니다.' },
+      { status: 500 }
     );
   }
 } 

@@ -57,6 +57,8 @@ export async function POST(req: Request) {
       });
     });
     
+    console.log(`API 호출: 리포트 이미지 ${reportImageUrl ? '있음' : '없음'}, 메시지 ${apiMessages.length}개`);
+    
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: apiMessages,

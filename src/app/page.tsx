@@ -43,6 +43,21 @@ export default function Home() {
     setIsLoading(true);
 
     try {
+      // 이미지 URL을 가져옵니다 (코드가 유효한 경우)
+      let reportImageUrl = null;
+      if (reportCode) {
+        try {
+          const response = await fetch(`/api/storage?code=${reportCode}`);
+          if (response.ok) {
+            const data = await response.json();
+            reportImageUrl = data.imageUrl;
+          }
+        } catch (error) {
+          console.error('리포트 이미지 URL 가져오기 오류:', error);
+          // 이미지 URL을 가져오는 데 실패해도 계속 진행
+        }
+      }
+
       // 채팅 API 호출
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -50,7 +65,8 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          messages: [...messages, userMessage]
+          messages: [...messages, userMessage],
+          reportImageUrl: reportImageUrl  // 리포트 이미지 URL 포함
         }),
       });
 
@@ -153,19 +169,41 @@ export default function Home() {
         throw new Error('유효하지 않은 코드 형식입니다. SSY-YYYYMMDD-HHMMSS 형식이어야 합니다.');
       }
       
-      // Storage API 호출 - 코드가 유효한지만 확인
+      // Storage API 호출 - 코드가 유효한지 확인하고 이미지 URL 받아오기
       const response = await fetch(`/api/storage?code=${code}`);
       
       if (!response.ok) {
         throw new Error('코드가 유효하지 않습니다.');
       }
       
-      // 코드가 유효한 경우 리콜키 코드만 설정
+      const data = await response.json();
+      
+      // 코드가 유효한 경우, 해당 이미지를 포함하여 초기 대화 시작
       setReportCode(code);
       setShowCodeSuccess(true);
       
-      // 사용자에게 메시지 없이 코드 로드 성공 표시
-      setMessages([]);
+      // 이미지 URL이 있다면 이를 사용하여 대화 시작
+      if (data.imageUrl) {
+        // 리콜키 이미지를 포함한 초기 메시지 추가
+        setMessages([
+          {
+            role: 'system',
+            content: `리콜키 코드 ${code}를 사용해 대화를 계속합니다.`
+          },
+          {
+            role: 'assistant',
+            content: `안녕하세요! 리콜키 코드 ${code}로 이전 대화 컨텍스트를 불러왔습니다. 대화를 계속할 수 있습니다.`
+          }
+        ]);
+      } else {
+        // 이미지 URL이 없는 경우 - 단순 코드만 설정
+        setMessages([
+          {
+            role: 'assistant',
+            content: `리콜키 코드 ${code}가 확인되었습니다. 대화를 시작할 수 있습니다.`
+          }
+        ]);
+      }
       
       // 성공 메시지 표시 후 3초 후 자동으로 사라짐
       setTimeout(() => {

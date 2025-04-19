@@ -82,13 +82,14 @@ export async function GET(req: Request) {
     const imageRef = ref(storage, `reports/${code}.png`);
     
     try {
-      // 이미지가 존재하는지 확인만 함
-      await getDownloadURL(imageRef);
+      // 이미지 URL 가져오기
+      const imageUrl = await getDownloadURL(imageRef);
       
-      // 코드가 유효함을 반환
+      // 코드가 유효함을 반환하며 이미지 URL도 포함
       return NextResponse.json({ 
         success: true,
-        code: code
+        code: code,
+        imageUrl: imageUrl
       });
     } catch (error) {
       // 이미지가 존재하지 않는 경우

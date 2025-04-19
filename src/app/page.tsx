@@ -66,17 +66,21 @@ export default function Home() {
         content: data.message.content || '죄송합니다, 응답을 생성하는 데 문제가 발생했습니다.'
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      // 메시지 배열 업데이트
+      const updatedMessages = [...messages, userMessage, assistantMessage];
+      setMessages(updatedMessages);
 
       // 리콜키 생성 - 백그라운드에서 비동기적으로 처리
       const newReportCode = reportCode || generateReportCode();
       setReportCode(newReportCode);
       
-      // 사용자 경험에 영향을 주지 않도록 리콜키 API 호출을 비동기로 처리
+      // 상태 업데이트 후 실제 메시지 목록을 전달하도록 수정
       const updatedHistory: ChatHistory = {
-        messages: [...messages, userMessage, assistantMessage],
+        messages: updatedMessages,
         code: newReportCode
       };
+
+      console.log(`리포트 생성 요청: ${updatedMessages.length}개 메시지, 코드: ${newReportCode}`);
 
       // 리콜키 API 호출을 백그라운드에서 비동기적으로 처리
       generateReportInBackground(updatedHistory);
@@ -109,10 +113,29 @@ export default function Home() {
 
       if (!reportResponse.ok) {
         console.error('리콜키 API 호출 실패:', reportResponse.status);
+        // 사용자에게 리콜키 생성 실패 알림 추가
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: '리콜키 생성에 실패했습니다. 관리자에게 문의하거나 다시 시도해 주세요.'
+          }
+        ]);
         return;
       }
 
       const reportData = await reportResponse.json();
+      
+      // 응답 검증: 리포트 데이터가 올바르게 생성되었는지 확인
+      if (!reportData.report || Object.keys(reportData.report).length === 0) {
+        console.error('리콜키 응답 데이터 오류: 빈 리포트 객체');
+        return;
+      }
+      
+      // 디버깅: 첫 번째 필드가 비어있는지 확인
+      const hasContent = reportData.report.flow && reportData.report.flow.length > 0;
+      console.log(`리콜키 생성 완료, 내용 포함: ${hasContent}`);
+      
       setReport(reportData.report);
     } catch (error) {
       console.error('리콜키 생성 백그라운드 처리 오류:', error);

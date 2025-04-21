@@ -288,7 +288,7 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-between p-4 md:p-8">
       <div className="w-full max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         <div className="p-4 md:p-8">
-          <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">대화 리콜키 생성기</h1>
+          <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">AI 대화 기억 흐름 저장&복원</h1>
 
           {/* 코드 입력 */}
           <CodeInput onSubmit={handleCodeSubmit} isLoading={isLoading} />
@@ -346,8 +346,11 @@ export default function Home() {
               <div className="text-center text-gray-500 mt-4">
                 {showIntro ? (
                   <div className="p-4 border-l-4 border-blue-500 bg-blue-50 text-left">
-                    <p className="text-sm">이 채팅은 대화를 자동으로 저장하지 않습니다. 대화를 이어가고 싶은 경우, 중간에 코드번호를 발행해 받으면 대화의 흐름을 그대로 이어서 계속할 수 있습니다.</p>
-                    <p className="text-sm mt-3">발급된 코드번호는 Claude, Gemini 등 다른 AI에 붙여넣어 지금 대화의 흐름을 그대로 이어서 계속할 수 있습니다.</p>
+                    <p className="text-sm">이 대화는 자동 저장되지 않습니다.복원 코드를 발급하면 언제든 흐름을 이어쓸 수 있습니다.</p>
+                    <p className="text-sm mt-3">코드는 ■로그인 없이■ 복원되며, 링크, QR, 클립보드 복사, 텍스트 삽입 등 다양한 방식으로 공유할 수 있습니다.</p>
+                    <p className="text-sm mt-3">Claude, GPT 등 외부 AI에는 OCR 이미지 리포트 또는 텍스트 요약을 통해 대화 흐름이 간접 전달될 수 있습니다.</p>
+                    <p className="text-sm mt-3">※ 본 시스템은 특허 출원된 구조이며, GPT, Claude 등은 각 사의 등록 상표입니다.</p>
+
                   </div>
                 ) : (
                   <p className="mt-16">새로운 대화를 시작하거나 이전 대화 코드를 입력하세요.</p>
